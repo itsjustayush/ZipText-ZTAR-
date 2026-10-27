@@ -21,5 +21,10 @@ scratch/
 node_modules/
 web/node_modules/
 web/dist/
-.vite/
+# Large test archives / raw corpora
+*.zip
+*.tar
+*.tar.gz
+fixtures/canterbury/
+resources/*.zip
 
