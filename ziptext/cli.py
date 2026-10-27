@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import List, Optional
 
 from ziptext import __version__
+from ziptext.classifier import classify_file
 from ziptext.codecs.base import CodecRegistry
 from ziptext.container import ContainerReader, IntegrityError, ZipTextError
 from ziptext.engine import ZipTextEngine
@@ -56,9 +57,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     # encode subcommand
-    p_encode = subparsers.add_parser("encode", help="Encode a file into a Zip Text container (.ztxt)")
+    p_encode = subparsers.add_parser("encode", help="Encode a file into a Zip Text container (.ztxt or .zbin)")
     p_encode.add_argument("input", type=str, help="Source file path to encode")
-    p_encode.add_argument("output", type=str, help="Destination .ztxt container path")
+    p_encode.add_argument("output", type=str, help="Destination container path (.ztxt or .zbin)")
     p_encode.add_argument(
         "--codec",
         "-c",
@@ -78,12 +79,20 @@ def build_parser() -> argparse.ArgumentParser:
         "-e",
         type=str,
         default="base85",
-        help="Text encoding: 'base85' or 'base64' (default: base85)",
+        help="Text encoding for .ztxt containers: 'base85' or 'base64' (default: base85)",
+    )
+    p_encode.add_argument(
+        "--profile",
+        "-p",
+        type=str,
+        choices=["auto", "text", "binary"],
+        default="auto",
+        help="Container profile: 'text' (.ztxt) or 'binary' (.zbin) (default: auto based on extension)",
     )
 
     # decode subcommand
-    p_decode = subparsers.add_parser("decode", help="Decode a Zip Text container (.ztxt) into original file")
-    p_decode.add_argument("input", type=str, help="Source .ztxt container path")
+    p_decode = subparsers.add_parser("decode", help="Decode a Zip Text container into original file")
+    p_decode.add_argument("input", type=str, help="Source .ztxt or .zbin container path")
     p_decode.add_argument(
         "output",
         type=str,
@@ -93,12 +102,16 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     # verify subcommand
-    p_verify = subparsers.add_parser("verify", help="Verify integrity of a Zip Text container (.ztxt)")
-    p_verify.add_argument("input", type=str, help="Path to .ztxt container")
+    p_verify = subparsers.add_parser("verify", help="Verify integrity of a Zip Text container (.ztxt or .zbin)")
+    p_verify.add_argument("input", type=str, help="Path to container")
 
     # info subcommand
     p_info = subparsers.add_parser("info", help="Inspect metadata manifest of a Zip Text container")
-    p_info.add_argument("input", type=str, help="Path to .ztxt container")
+    p_info.add_argument("input", type=str, help="Path to container")
+
+    # classify subcommand
+    p_classify = subparsers.add_parser("classify", help="Analyze file type and Zip Text compression viability")
+    p_classify.add_argument("input", type=str, help="File path to analyze")
 
     return parser
 
@@ -131,6 +144,25 @@ def cmd_matrix(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_classify(args: argparse.Namespace) -> int:
+    p = Path(args.input)
+    if not p.is_file():
+        print(f"Error: File not found: {p}", file=sys.stderr)
+        return 1
+
+    report = classify_file(p)
+    print("\n=== Zip Text File Viability Analysis ===")
+    print(f"Target File:           {p.name} ({format_bytes(p.stat().st_size)})")
+    print(f"Category:              {report.category}")
+    print(f"Format Description:    {report.description}")
+    print(f"Text Profile Viability:   {report.ziptext_viability_text}")
+    print(f"Binary Profile Viability: {report.ziptext_viability_binary}")
+    print(f"Recommended Profile:   --profile {report.recommended_profile} (.{'ztxt' if report.recommended_profile == 'text' else 'zbin'})")
+    print(f"Expected Size Delta:   {report.expected_size_delta}")
+    print(f"Technical Notes:       {report.technical_notes}\n")
+    return 0
+
+
 def cmd_encode(args: argparse.Namespace) -> int:
     engine = ZipTextEngine()
     print(f"Encoding '{args.input}' -> '{args.output}' [codec={args.codec}, chunk_size={args.chunk_size}]...")
@@ -141,14 +173,23 @@ def cmd_encode(args: argparse.Namespace) -> int:
             codec=args.codec,
             chunk_size=args.chunk_size,
             encoding=args.encoding,
+            profile=args.profile,
         )
         print(f"Encoding complete in {res.duration_seconds:.3f}s:")
+        print(f"  Container Profile: {res.profile.upper()} ({'Base85 Portable Text' if res.profile == 'text' else 'Zero-Overhead Binary'})")
         print(f"  Original size:    {format_bytes(res.original_size)} ({res.original_size} bytes)")
         print(f"  Container size:   {format_bytes(res.encoded_size)} ({res.encoded_size} bytes)")
         print(f"  Size change:      {res.size_change_pct:+.2f}% (ratio: {res.ratio:.3f})")
         print(f"  Total chunks:     {res.total_chunks}")
         print(f"  Codecs used:      {res.codec_distribution}")
         print(f"  SHA-256:          {res.file_sha256}")
+
+        if res.profile == "text" and res.size_change_pct > 20:
+            print(
+                f"\n[Tip] This file expanded in text mode due to Base85 (+25%).\n"
+                f"      To eliminate text overhead for binary/media files, use the binary profile:\n"
+                f"      python -m ziptext encode \"{args.input}\" \"{Path(args.output).stem}.zbin\" --profile binary\n"
+            )
         return 0
     except Exception as e:
         print(f"Encoding failed: {e}", file=sys.stderr)
@@ -163,8 +204,7 @@ def cmd_decode(args: argparse.Namespace) -> int:
         return 1
 
     try:
-        with open(in_p, "r", encoding="utf-8") as f:
-            reader = ContainerReader(f)
+        with ContainerReader.open(in_p) as reader:
             manifest = reader.manifest
 
         if args.output:
@@ -211,6 +251,7 @@ def cmd_verify(args: argparse.Namespace) -> int:
         res = engine.verify_file(args.input)
         if res["valid"]:
             print("Container integrity VERIFIED successfully!")
+            print(f"  Profile:           {res['profile'].upper()}")
             print(f"  Original filename: {res['manifest'].filename}")
             print(f"  File size:         {format_bytes(res['total_bytes'])}")
             print(f"  Chunks verified:   {res['chunks_verified']}")
@@ -229,11 +270,11 @@ def cmd_info(args: argparse.Namespace) -> int:
     if not p.is_file():
         print(f"File not found: {p}", file=sys.stderr)
         return 1
-    with open(p, "r", encoding="utf-8") as f:
-        reader = ContainerReader(f)
+    with ContainerReader.open(p) as reader:
         m = reader.manifest
         print("=== Zip Text Container Manifest ===")
         print(f"Version:          {m.version}")
+        print(f"Profile:          {m.profile.upper()}")
         print(f"Original File:    {m.filename}")
         print(f"File Size:        {format_bytes(m.file_size)} ({m.file_size} bytes)")
         print(f"SHA-256:          {m.file_sha256}")
@@ -256,6 +297,7 @@ def main(argv: Optional[list] = None) -> int:
         "decode": cmd_decode,
         "verify": cmd_verify,
         "info": cmd_info,
+        "classify": cmd_classify,
     }
 
     handler = handlers.get(args.command)

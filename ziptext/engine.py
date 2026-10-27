@@ -20,6 +20,7 @@ from ziptext.container import (
 )
 from ziptext.text_encodings import encode_text
 from ziptext.utils import MemoryTracker, compute_file_sha256, compute_sha256
+from ziptext.validator import MediaValidator, ValidationReport
 
 
 @dataclass
@@ -39,6 +40,7 @@ class EncodeResult:
     codec_distribution: Dict[str, int]
     duration_seconds: float
     peak_memory_rss: int
+    profile: str = "text"
 
 
 @dataclass
@@ -55,6 +57,7 @@ class DecodeResult:
     peak_memory_rss: int
     original_filename: str = ""
     media_format_info: Optional[str] = None
+    validation: Optional[ValidationReport] = None
 
 
 class ZipTextEngine:
@@ -68,15 +71,19 @@ class ZipTextEngine:
         raw_bytes: bytes,
         encoding: str = "base85",
         candidate_codecs: Optional[List[str]] = None,
+        is_binary_profile: bool = False,
     ) -> Tuple[str, bytes]:
-        """Test candidate codecs and pick the one with smallest serialized text representation."""
+        """Test candidate codecs and pick the one with smallest serialized representation."""
         if candidate_codecs is None:
             candidate_codecs = CodecRegistry.available_codecs()
 
         best_codec = "raw"
         best_comp_bytes = raw_bytes
-        # Serialization length of raw
-        best_size = len(encode_text(raw_bytes, encoding))
+
+        if is_binary_profile:
+            best_size = len(raw_bytes)
+        else:
+            best_size = len(encode_text(raw_bytes, encoding))
 
         for c_name in candidate_codecs:
             if c_name == "raw":
@@ -84,15 +91,18 @@ class ZipTextEngine:
             try:
                 codec = CodecRegistry.get(c_name)
                 comp_bytes = codec.encode(raw_bytes)
-                text_len = len(encode_text(comp_bytes, encoding))
 
-                # Strictly smaller or significantly better
-                if text_len < best_size:
-                    best_size = text_len
+                if is_binary_profile:
+                    candidate_size = len(comp_bytes)
+                else:
+                    candidate_size = len(encode_text(comp_bytes, encoding))
+
+                # Strictly smaller representation
+                if candidate_size < best_size:
+                    best_size = candidate_size
                     best_codec = c_name
                     best_comp_bytes = comp_bytes
             except Exception:
-                # If a codec fails on specific data, gracefully skip
                 continue
 
         return best_codec, best_comp_bytes
@@ -104,8 +114,9 @@ class ZipTextEngine:
         codec: str = "auto",
         chunk_size: int = 1048576,
         encoding: str = "base85",
+        profile: str = "auto",
     ) -> EncodeResult:
-        """Encode a file into a Zip Text container (.ztxt)."""
+        """Encode a file into a Zip Text container (.ztxt text or .zbin binary)."""
         in_p = Path(input_path).resolve()
         out_p = Path(output_path).resolve()
 
@@ -113,6 +124,12 @@ class ZipTextEngine:
             raise FileNotFoundError(f"Input file not found: {in_p}")
 
         out_p.parent.mkdir(parents=True, exist_ok=True)
+
+        # Resolve container profile
+        if profile == "auto":
+            effective_profile = "binary" if out_p.suffix.lower() == ".zbin" else "text"
+        else:
+            effective_profile = profile.lower()
 
         original_size = in_p.stat().st_size
         file_sha256 = compute_file_sha256(in_p)
@@ -128,15 +145,20 @@ class ZipTextEngine:
             chunk_size=chunk_size,
             total_chunks=total_chunks,
             policy=codec,
-            default_encoding=encoding,
+            default_encoding=encoding if effective_profile == "text" else "none",
+            profile=effective_profile,
             created_at=datetime.now(timezone.utc).isoformat(),
         )
 
         codec_distribution: Dict[str, int] = {}
+        is_bin = (effective_profile == "binary")
 
         with MemoryTracker() as mem:
-            with open(out_p, "w", encoding="utf-8") as out_f:
-                writer = ContainerWriter(out_f, manifest)
+            open_mode = "wb" if is_bin else "w"
+            open_kwargs = {} if is_bin else {"encoding": "utf-8"}
+
+            with open(out_p, open_mode, **open_kwargs) as out_f:
+                writer = ContainerWriter(out_f, manifest, profile=effective_profile)
 
                 if original_size > 0:
                     with open(in_p, "rb") as in_f:
@@ -150,7 +172,9 @@ class ZipTextEngine:
 
                             if codec == "auto":
                                 chosen_codec, comp_bytes = self._select_adaptive_codec(
-                                    raw_chunk, encoding=encoding
+                                    raw_chunk,
+                                    encoding=encoding,
+                                    is_binary_profile=is_bin,
                                 )
                             else:
                                 chosen_codec = codec.lower()
@@ -186,81 +210,43 @@ class ZipTextEngine:
             chunk_size=chunk_size,
             total_chunks=total_chunks,
             policy=codec,
-            text_encoding=encoding,
+            text_encoding=encoding if effective_profile == "text" else "none",
             file_sha256=file_sha256,
             codec_distribution=codec_distribution,
             duration_seconds=mem.elapsed_time,
             peak_memory_rss=mem.peak_rss,
+            profile=effective_profile,
         )
-
-    def _validate_media_format(self, file_path: Path) -> Optional[str]:
-        """Validate whether the recovered file is a valid standard media or structured format."""
-        ext = file_path.suffix.lower()
-        try:
-            if ext in [".jpg", ".jpeg", ".png", ".webp", ".bmp", ".gif", ".tiff", ".ppm"]:
-                from PIL import Image
-                with Image.open(file_path) as img:
-                    fmt = img.format
-                    size = img.size
-                    mode = img.mode
-                return f"Standard Image ({fmt}, {size[0]}x{size[1]}, mode={mode})"
-            elif ext == ".pdf":
-                with open(file_path, "rb") as f:
-                    header = f.read(1024)
-                    if b"%PDF-" in header:
-                        return "Standard PDF Document (valid %PDF- header)"
-            elif ext == ".json":
-                import json
-                with open(file_path, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                    return f"Valid JSON Document ({type(data).__name__})"
-            elif ext == ".csv":
-                with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
-                    lines = [f.readline() for _ in range(3)]
-                    return f"Valid CSV Document ({len(lines)} sample rows parsed)"
-            elif ext == ".mp4":
-                with open(file_path, "rb") as f:
-                    header = f.read(32)
-                    if b"ftyp" in header:
-                        return "Standard ISO-BMFF / MP4 Media Container (valid ftyp header)"
-        except Exception as e:
-            return f"Format Validation Note: {e}"
-        return None
 
     def decode_file(
         self,
         input_path: Union[str, Path],
         output_path: Optional[Union[str, Path]] = None,
     ) -> DecodeResult:
-        """Decode a Zip Text container (.ztxt) into the reconstructed file with integrity verification."""
+        """Decode a Zip Text container (.ztxt or .zbin) into the reconstructed file with integrity verification."""
         in_p = Path(input_path).resolve()
 
         if not in_p.is_file():
             raise FileNotFoundError(f"Container file not found: {in_p}")
 
-        # Pre-read manifest to determine original filename if output_path is not specified
-        with open(in_p, "r", encoding="utf-8") as in_f:
-            reader = ContainerReader(in_f)
+        # Use ContainerReader.open which handles both text (.ztxt) and binary (.zbin) transparently
+        with ContainerReader.open(in_p) as reader:
             manifest = reader.manifest
 
-        if output_path is None:
-            out_p = in_p.parent / f"recovered_{manifest.filename}"
-        else:
-            out_p = Path(output_path).resolve()
+            if output_path is None:
+                out_p = in_p.parent / f"recovered_{manifest.filename}"
+            else:
+                out_p = Path(output_path).resolve()
 
-        out_p.parent.mkdir(parents=True, exist_ok=True)
+            out_p.parent.mkdir(parents=True, exist_ok=True)
+            temp_out = out_p.with_suffix(out_p.suffix + ".ztmp")
 
-        temp_out = out_p.with_suffix(out_p.suffix + ".ztmp")
+            with MemoryTracker() as mem:
+                hasher = hashlib.sha256()
+                total_written = 0
+                chunks_processed = 0
 
-        with MemoryTracker() as mem:
-            hasher = hashlib.sha256()
-            total_written = 0
-            chunks_processed = 0
-
-            try:
-                with open(in_p, "r", encoding="utf-8") as in_f:
-                    reader = ContainerReader(in_f)
-
+                try:
                     with open(temp_out, "wb") as out_f:
                         for header, raw_chunk in reader.iter_chunks():
                             hasher.update(raw_chunk)
@@ -269,30 +255,31 @@ class ZipTextEngine:
                             chunks_processed += 1
                             mem.poll()
 
-                reconstructed_sha256 = hasher.hexdigest()
+                    reconstructed_sha256 = hasher.hexdigest()
 
-                # Verify overall file size and whole-file SHA-256
-                if total_written != manifest.file_size:
-                    raise IntegrityError(
-                        f"Reconstructed file size mismatch: expected {manifest.file_size} bytes, got {total_written} bytes"
-                    )
+                    # Verify overall file size and whole-file SHA-256
+                    if total_written != manifest.file_size:
+                        raise IntegrityError(
+                            f"Reconstructed file size mismatch: expected {manifest.file_size} bytes, got {total_written} bytes"
+                        )
 
-                if reconstructed_sha256 != manifest.file_sha256:
-                    raise IntegrityError(
-                        f"Whole-file SHA-256 mismatch!\nExpected: {manifest.file_sha256}\nComputed: {reconstructed_sha256}"
-                    )
+                    if reconstructed_sha256 != manifest.file_sha256:
+                        raise IntegrityError(
+                            f"Whole-file SHA-256 mismatch!\nExpected: {manifest.file_sha256}\nComputed: {reconstructed_sha256}"
+                        )
 
-                # Atomic replace on success
-                if temp_out.exists():
-                    shutil.move(str(temp_out), str(out_p))
+                    # Atomic replace on success
+                    if temp_out.exists():
+                        shutil.move(str(temp_out), str(out_p))
 
-            except Exception:
-                if temp_out.exists():
-                    temp_out.unlink()
-                raise
+                except Exception:
+                    if temp_out.exists():
+                        temp_out.unlink()
+                    raise
 
         exact_match = (reconstructed_sha256 == manifest.file_sha256)
-        media_info = self._validate_media_format(out_p)
+        validation_rep = MediaValidator.validate(out_p)
+        media_info = f"{validation_rep.format_name} - {validation_rep.details}"
 
         return DecodeResult(
             input_path=in_p,
@@ -306,6 +293,7 @@ class ZipTextEngine:
             peak_memory_rss=mem.peak_rss,
             original_filename=manifest.filename,
             media_format_info=media_info,
+            validation=validation_rep,
         )
 
     def verify_file(self, container_path: Union[str, Path]) -> Dict[str, Any]:
@@ -315,8 +303,7 @@ class ZipTextEngine:
         total_bytes = 0
         chunks_count = 0
 
-        with open(p, "r", encoding="utf-8") as in_f:
-            reader = ContainerReader(in_f)
+        with ContainerReader.open(p) as reader:
             manifest = reader.manifest
             for header, raw_chunk in reader.iter_chunks():
                 hasher.update(raw_chunk)
@@ -333,4 +320,5 @@ class ZipTextEngine:
             "total_bytes": total_bytes,
             "expected_sha256": manifest.file_sha256,
             "computed_sha256": computed_sha256,
+            "profile": manifest.profile,
         }

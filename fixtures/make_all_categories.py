@@ -1,0 +1,102 @@
+import io
+import json
+import math
+import os
+import zipfile
+from pathlib import Path
+from PIL import Image, ImageDraw
+
+out = Path("fixtures/all_categories")
+out.mkdir(parents=True, exist_ok=True)
+
+# 1. Text & Configuration
+(out / "data.json").write_text(
+    json.dumps(
+        {"status": "ok", "records": [{"id": i, "val": f"value_{i % 10}"} for i in range(500)]},
+        indent=2,
+    )
+)
+(out / "table.csv").write_text(
+    "id,name,category,score\n"
+    + "\n".join(f"{i},Item_{i % 20},Category_{i % 5},{80 + (i % 20)}" for i in range(1000))
+)
+(out / "config.xml").write_text(
+    '<configuration><app name="ZipText"><settings>'
+    + "".join(f'<property id="{i}" key="k_{i % 5}">val_{i}</property>' for i in range(400))
+    + "</settings></app></configuration>"
+)
+(out / "source.py").write_text(
+    "def compute(n: int) -> int:\n    # Calculation loop\n    total = 0\n    for i in range(n):\n        total += (i * 3) % 7\n    return total\n\n"
+    * 100
+)
+(out / "notes.txt").write_text("Zip Text Universal File Type Test Suite.\n" * 500)
+
+# 2. Vector & Raster Images
+svg_circles = "\n".join(
+    f'<circle cx="{(i * 10) % 500}" cy="{(i * 12) % 500}" r="{10 + (i % 30)}" fill="blue"/>'
+    for i in range(300)
+)
+svg_content = f'<svg xmlns="http://www.w3.org/2000/svg" width="500" height="500">\n{svg_circles}\n</svg>'
+(out / "vector.svg").write_text(svg_content)
+
+img = Image.new("RGB", (200, 200), (220, 240, 255))
+d = ImageDraw.Draw(img)
+for i in range(18):
+    d.rectangle([i * 5, i * 5, 190 - i * 5, 190 - i * 5], outline=(i * 8 % 255, 100, 200))
+img.save(out / "graphic.bmp", format="BMP")
+img.save(out / "graphic.png", format="PNG")
+img.save(out / "photo.jpg", format="JPEG", quality=85)
+
+# 3. Audio / Video (WAV & MP4)
+sample_rate = 44100
+samples = bytearray()
+for i in range(sample_rate):
+    val = int(16000 * math.sin(2 * math.pi * 440 * i / sample_rate))
+    samples.extend(val.to_bytes(2, byteorder="little", signed=True))
+wav_hdr = (
+    b"RIFF"
+    + (36 + len(samples)).to_bytes(4, "little")
+    + b"WAVEfmt \x10\x00\x00\x00\x01\x00\x01\x00"
+    + sample_rate.to_bytes(4, "little")
+    + (sample_rate * 2).to_bytes(4, "little")
+    + b"\x02\x00\x10\x00data"
+    + len(samples).to_bytes(4, "little")
+)
+(out / "audio.wav").write_bytes(wav_hdr + bytes(samples))
+
+# Copy synthetic.mp4 from fixtures
+if Path("fixtures/synthetic.mp4").is_file():
+    import shutil
+
+    shutil.copy("fixtures/synthetic.mp4", out / "video.mp4")
+
+# 4. Document / Office (Minimal valid DOCX zip)
+docx_buf = io.BytesIO()
+with zipfile.ZipFile(docx_buf, "w") as z:
+    z.writestr(
+        "[Content_Types].xml",
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="xml" ContentType="application/xml"/></Types>',
+    )
+    z.writestr(
+        "word/document.xml",
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>Zip Text Document Test</w:t></w:r></w:p></w:body></w:document>',
+    )
+(out / "document.docx").write_bytes(docx_buf.getvalue())
+
+# Copy synthetic.pdf
+if Path("fixtures/synthetic.pdf").is_file():
+    shutil.copy("fixtures/synthetic.pdf", out / "document.pdf")
+
+# 5. Archive & Binary
+zip_buf = io.BytesIO()
+with zipfile.ZipFile(zip_buf, "w") as z:
+    z.writestr("file1.txt", "Hello inside archive")
+    z.writestr("file2.txt", "Second file inside archive")
+(out / "bundle.zip").write_bytes(zip_buf.getvalue())
+
+# Mock Windows PE Executable (Valid MZ and PE signatures)
+dos_hdr = b"MZ" + b"\x00" * 58 + (0x40).to_bytes(4, "little")
+pe_hdr = b"PE\x00\x00" + b"\x00" * 20
+(out / "sample.exe").write_bytes(dos_hdr + pe_hdr + b"\x90" * 512)
+
+print("Created all categories fixtures:", [f.name for f in out.iterdir()])
