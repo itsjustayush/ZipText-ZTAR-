@@ -290,4 +290,17 @@ class MediaValidator:
                 f.seek(0x3C)
                 pe_offset_bytes = f.read(4)
                 if len(pe_offset_bytes) == 4:
-   
+                    import struct
+                    pe_offset = struct.unpack("<I", pe_offset_bytes)[0]
+                    f.seek(pe_offset)
+                    pe_signature = f.read(4)
+                    is_pe = (header == b"MZ" and pe_signature == b"PE\x00\x00")
+                    return ValidationReport(
+                        is_valid=is_pe,
+                        format_name="Windows Portable Executable (MZ/PE)",
+                        details="Valid DOS MZ header and PE signature verified.",
+                        properties=f"PEOffset=0x{pe_offset:X}",
+                    )
+            return ValidationReport(header == b"MZ", "Executable", "MZ signature present.")
+        except Exception as e:
+            return ValidationReport(False, "Executable", f"PE parsing failed: {e}")

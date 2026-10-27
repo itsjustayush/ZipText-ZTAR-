@@ -55,6 +55,12 @@ def build_parser() -> argparse.ArgumentParser:
         default="results/matrix",
         help="Directory to store JSON and CSV benchmark reports (default: results/matrix)",
     )
+    p_matrix.add_argument(
+        "--profile",
+        choices=["text", "binary"],
+        default="text",
+        help="Container profile to benchmark ('text' [.ztxt] or 'binary' [.zbin], default: text)",
+    )
 
     # encode subcommand
     p_encode = subparsers.add_parser("encode", help="Encode a file into a Zip Text container (.ztxt or .zbin)")
@@ -135,6 +141,7 @@ def cmd_matrix(args: argparse.Namespace) -> int:
     runner = MatrixRunner(
         fixtures_dir=fixtures_dir,
         output_dir=args.output_dir,
+        profile=args.profile,
     )
     rows = runner.run()
     failures = [r for r in rows if not r.exact_match]
