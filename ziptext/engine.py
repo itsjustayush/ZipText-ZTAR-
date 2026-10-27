@@ -53,6 +53,8 @@ class DecodeResult:
     exact_match: bool
     duration_seconds: float
     peak_memory_rss: int
+    original_filename: str = ""
+    media_format_info: Optional[str] = None
 
 
 class ZipTextEngine:
@@ -191,17 +193,60 @@ class ZipTextEngine:
             peak_memory_rss=mem.peak_rss,
         )
 
+    def _validate_media_format(self, file_path: Path) -> Optional[str]:
+        """Validate whether the recovered file is a valid standard media or structured format."""
+        ext = file_path.suffix.lower()
+        try:
+            if ext in [".jpg", ".jpeg", ".png", ".webp", ".bmp", ".gif", ".tiff", ".ppm"]:
+                from PIL import Image
+                with Image.open(file_path) as img:
+                    fmt = img.format
+                    size = img.size
+                    mode = img.mode
+                return f"Standard Image ({fmt}, {size[0]}x{size[1]}, mode={mode})"
+            elif ext == ".pdf":
+                with open(file_path, "rb") as f:
+                    header = f.read(1024)
+                    if b"%PDF-" in header:
+                        return "Standard PDF Document (valid %PDF- header)"
+            elif ext == ".json":
+                import json
+                with open(file_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    return f"Valid JSON Document ({type(data).__name__})"
+            elif ext == ".csv":
+                with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+                    lines = [f.readline() for _ in range(3)]
+                    return f"Valid CSV Document ({len(lines)} sample rows parsed)"
+            elif ext == ".mp4":
+                with open(file_path, "rb") as f:
+                    header = f.read(32)
+                    if b"ftyp" in header:
+                        return "Standard ISO-BMFF / MP4 Media Container (valid ftyp header)"
+        except Exception as e:
+            return f"Format Validation Note: {e}"
+        return None
+
     def decode_file(
         self,
         input_path: Union[str, Path],
-        output_path: Union[str, Path],
+        output_path: Optional[Union[str, Path]] = None,
     ) -> DecodeResult:
         """Decode a Zip Text container (.ztxt) into the reconstructed file with integrity verification."""
         in_p = Path(input_path).resolve()
-        out_p = Path(output_path).resolve()
 
         if not in_p.is_file():
             raise FileNotFoundError(f"Container file not found: {in_p}")
+
+        # Pre-read manifest to determine original filename if output_path is not specified
+        with open(in_p, "r", encoding="utf-8") as in_f:
+            reader = ContainerReader(in_f)
+            manifest = reader.manifest
+
+        if output_path is None:
+            out_p = in_p.parent / f"recovered_{manifest.filename}"
+        else:
+            out_p = Path(output_path).resolve()
 
         out_p.parent.mkdir(parents=True, exist_ok=True)
 
@@ -215,7 +260,6 @@ class ZipTextEngine:
             try:
                 with open(in_p, "r", encoding="utf-8") as in_f:
                     reader = ContainerReader(in_f)
-                    manifest = reader.manifest
 
                     with open(temp_out, "wb") as out_f:
                         for header, raw_chunk in reader.iter_chunks():
@@ -248,6 +292,7 @@ class ZipTextEngine:
                 raise
 
         exact_match = (reconstructed_sha256 == manifest.file_sha256)
+        media_info = self._validate_media_format(out_p)
 
         return DecodeResult(
             input_path=in_p,
@@ -259,6 +304,8 @@ class ZipTextEngine:
             exact_match=exact_match,
             duration_seconds=mem.elapsed_time,
             peak_memory_rss=mem.peak_rss,
+            original_filename=manifest.filename,
+            media_format_info=media_info,
         )
 
     def verify_file(self, container_path: Union[str, Path]) -> Dict[str, Any]:

@@ -43,3 +43,4 @@ Every patch release folder must contain:
 | Version | Release Date | Exact Round-Trips | Unit Tests | Notes |
 | :--- | :--- | :--- | :--- | :--- |
 | [`v0.1.0`](file:///e:/Projects/ZipText(ZTAR)/reports/v0/v0.1.0/) | 2026-10-27 | **108 / 108** | **35 Passed** | Initial baseline across 9 media types, 6 codecs, 2 chunk sizes |
+| [`v0.1.1`](file:///e:/Projects/ZipText(ZTAR)/reports/v0/v0.1.1/) | 2026-10-27 | **96 / 96** | **35 Passed** | Real-world resources (sports photos, sports.csv, testimg.jpg, countries.json) |

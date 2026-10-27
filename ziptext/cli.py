@@ -84,7 +84,13 @@ def build_parser() -> argparse.ArgumentParser:
     # decode subcommand
     p_decode = subparsers.add_parser("decode", help="Decode a Zip Text container (.ztxt) into original file")
     p_decode.add_argument("input", type=str, help="Source .ztxt container path")
-    p_decode.add_argument("output", type=str, help="Destination recovered file path")
+    p_decode.add_argument(
+        "output",
+        type=str,
+        nargs="?",
+        default=None,
+        help="Destination recovered file path (default: recovered_<original_filename>)",
+    )
 
     # verify subcommand
     p_verify = subparsers.add_parser("verify", help="Verify integrity of a Zip Text container (.ztxt)")
@@ -151,17 +157,44 @@ def cmd_encode(args: argparse.Namespace) -> int:
 
 def cmd_decode(args: argparse.Namespace) -> int:
     engine = ZipTextEngine()
-    print(f"Decoding '{args.input}' -> '{args.output}' with byte-for-byte SHA-256 verification...")
+    in_p = Path(args.input)
+    if not in_p.is_file():
+        print(f"Error: Container file not found: {in_p}", file=sys.stderr)
+        return 1
+
     try:
+        with open(in_p, "r", encoding="utf-8") as f:
+            reader = ContainerReader(f)
+            manifest = reader.manifest
+
+        if args.output:
+            orig_ext = Path(manifest.filename).suffix.lower()
+            target_ext = Path(args.output).suffix.lower()
+            if orig_ext != target_ext:
+                print(
+                    f"\n[WARNING] Extension Mismatch Detected:\n"
+                    f"  Container originally stored: '{manifest.filename}' ({orig_ext or 'no extension'})\n"
+                    f"  Requested output filename:   '{args.output}' ({target_ext or 'no extension'})\n"
+                    f"  Note: The recovered bytes are '{orig_ext}' data. Saving as '{target_ext}' may cause viewers to fail!\n",
+                    file=sys.stderr,
+                )
+
+        target_display = args.output if args.output else f"recovered_{manifest.filename}"
+        print(f"Decoding '{args.input}' -> '{target_display}' with byte-for-byte SHA-256 verification...")
+
         res = engine.decode_file(
             input_path=args.input,
             output_path=args.output,
         )
         print(f"Decoding successful in {res.duration_seconds:.3f}s:")
+        print(f"  Original Name:    {res.original_filename}")
+        print(f"  Destination:      {res.output_path}")
         print(f"  Recovered size:   {format_bytes(res.file_size)} ({res.file_size} bytes)")
         print(f"  Chunks verified:  {res.total_chunks}")
         print(f"  Reconstructed:    {res.reconstructed_sha256}")
         print(f"  Exact match:      {res.exact_match} (Lossless verified!)")
+        if res.media_format_info:
+            print(f"  Media Validation: {res.media_format_info}")
         return 0
     except IntegrityError as ie:
         print(f"INTEGRITY ERROR: {ie}", file=sys.stderr)
