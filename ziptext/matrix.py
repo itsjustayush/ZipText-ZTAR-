@@ -41,7 +41,7 @@ class MatrixRunner:
     """Executes the full test matrix across fixtures, codecs, and chunk sizes."""
 
     DEFAULT_CHUNK_SIZES = [262144, 1048576]  # 256 KiB and 1 MiB
-    DEFAULT_POLICIES = ["raw", "zlib", "bz2", "lzma", "lz4", "auto"]
+    DEFAULT_POLICIES = ["raw", "zlib", "bz2", "lzma", "lz4", "zstd", "brotli", "auto"]
 
     def __init__(
         self,

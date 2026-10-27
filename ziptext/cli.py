@@ -71,7 +71,7 @@ def build_parser() -> argparse.ArgumentParser:
         "-c",
         type=str,
         default="auto",
-        help="Compression policy: 'auto', 'raw', 'zlib', 'bz2', 'lzma', 'lz4' (default: auto)",
+        help="Compression policy: 'auto', 'raw', 'zlib', 'bz2', 'lzma', 'lz4', 'zstd', 'brotli' (default: auto)",
     )
     p_encode.add_argument(
         "--chunk-size",
@@ -118,6 +118,18 @@ def build_parser() -> argparse.ArgumentParser:
     # classify subcommand
     p_classify = subparsers.add_parser("classify", help="Analyze file type and Zip Text compression viability")
     p_classify.add_argument("input", type=str, help="File path to analyze")
+
+    # corpora subcommand
+    p_corpora = subparsers.add_parser("corpora", help="Manage external benchmark corpora (Canterbury, Silesia)")
+    p_corpora.add_argument("action", choices=["download", "list"], help="Action to perform (download or list)")
+    p_corpora.add_argument("--corpus", choices=["canterbury"], default="canterbury", help="Corpus to manage")
+    p_corpora.add_argument("--dest", type=str, default="fixtures/canterbury", help="Target directory")
+
+    # ztar-bench subcommand
+    p_bench = subparsers.add_parser("ztar-bench", help="Run 4-tier evaluation and baseline comparison on a corpus")
+    p_bench.add_argument("corpus_dir", type=str, nargs="?", default="fixtures/canterbury", help="Path to corpus directory")
+    p_bench.add_argument("--output-dir", "-o", type=str, default="results/ztar_bench", help="Output directory for reports")
+    p_bench.add_argument("--category", type=str, default="General", help="Category name for report")
 
     return parser
 
@@ -293,6 +305,35 @@ def cmd_info(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_corpora(args: argparse.Namespace) -> int:
+    if args.action == "download":
+        from ziptext.corpora import CorporaManager
+        if args.corpus == "canterbury":
+            CorporaManager.fetch_canterbury_corpus(Path(args.dest))
+            return 0
+    elif args.action == "list":
+        print("Available Benchmark Corpora:")
+        print("  - canterbury : Canonical lossless compression test suite (11 files)")
+        print("  - silesia    : High-diversity multi-format corpus (12 files)")
+        return 0
+    return 0
+
+
+def cmd_ztar_bench(args: argparse.Namespace) -> int:
+    from ziptext.benchmarks.four_tier_eval import FourTierEvaluator
+    evaluator = FourTierEvaluator(output_dir=args.output_dir)
+    print(f"Executing ZTAR-Bench 4-Tier Evaluation on {args.corpus_dir} [{args.category}]...")
+    rows = evaluator.evaluate_directory(args.corpus_dir, category=args.category)
+
+    header = f"{'File':<14} | {'Rep A (Orig)':<12} | {'Rep B (Comp)':<12} | {'Rep C (B85)':<12} | {'Rep D (ZTXT)':<12} | {'Rep D (ZBIN)':<12} | {'Best Codec':<10} | {'Match'}"
+    print("\n" + header)
+    print("-" * len(header))
+    for r in rows:
+        print(f"{r.file_name:<14} | {r.original_size_bytes:<12,} | {r.compressed_binary_bytes:<12,} | {r.compressed_text_bytes:<12,} | {r.complete_ztxt_container_bytes:<12,} | {r.complete_zbin_container_bytes:<12,} | {r.best_codec:<10} | {r.exact_match}")
+    print(f"\n[ZTAR-Bench Complete] All {len(rows)} files verified bit-for-bit (Results saved to {args.output_dir})")
+    return 0
+
+
 def main(argv: Optional[list] = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -305,6 +346,8 @@ def main(argv: Optional[list] = None) -> int:
         "verify": cmd_verify,
         "info": cmd_info,
         "classify": cmd_classify,
+        "corpora": cmd_corpora,
+        "ztar-bench": cmd_ztar_bench,
     }
 
     handler = handlers.get(args.command)

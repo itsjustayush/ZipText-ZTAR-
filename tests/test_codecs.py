@@ -74,10 +74,40 @@ def test_codec_registry_lookup():
         CodecRegistry.get("non_existent_codec")
 
 
+def test_zstd_codec():
+    from ziptext.codecs.zstd_codec import HAS_ZSTD, ZstdCodec
+    if not HAS_ZSTD:
+        pytest.skip("Zstandard library not installed")
+    codec = ZstdCodec()
+    assert codec.name == "zstd"
+    data = b"Zstandard fast and high-ratio test sequence!" * 50
+    compressed = codec.encode(data)
+    restored = codec.decode(compressed)
+    assert restored == data
+
+
+def test_brotli_codec():
+    from ziptext.codecs.brotli_codec import HAS_BROTLI, BrotliCodec
+    if not HAS_BROTLI:
+        pytest.skip("Brotli library not installed")
+    codec = BrotliCodec()
+    assert codec.name == "brotli"
+    data = b"Brotli web-optimized text compression test sequence!" * 50
+    compressed = codec.encode(data)
+    restored = codec.decode(compressed)
+    assert restored == data
+
+
 def test_codec_empty_bytes():
+    from ziptext.codecs.zstd_codec import HAS_ZSTD
+    from ziptext.codecs.brotli_codec import HAS_BROTLI
     codecs_to_test = ["raw", "zlib", "bz2", "lzma"]
     if HAS_LZ4:
         codecs_to_test.append("lz4")
+    if HAS_ZSTD:
+        codecs_to_test.append("zstd")
+    if HAS_BROTLI:
+        codecs_to_test.append("brotli")
 
     for name in codecs_to_test:
         c = CodecRegistry.get(name)
@@ -87,9 +117,15 @@ def test_codec_empty_bytes():
 
 
 def test_codec_single_byte():
+    from ziptext.codecs.zstd_codec import HAS_ZSTD
+    from ziptext.codecs.brotli_codec import HAS_BROTLI
     codecs_to_test = ["raw", "zlib", "bz2", "lzma"]
     if HAS_LZ4:
         codecs_to_test.append("lz4")
+    if HAS_ZSTD:
+        codecs_to_test.append("zstd")
+    if HAS_BROTLI:
+        codecs_to_test.append("brotli")
 
     single = b"\x42"
     for name in codecs_to_test:
