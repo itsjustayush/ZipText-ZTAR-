@@ -31,6 +31,7 @@ This directory maintains a comprehensive, permanent record of every failure, bug
 | [`ERR-010`](file:///e:/Projects/ZipText(ZTAR)/errors/ERR-010_powershell_operator_syntax_collision.md) | **P3** | Execution | PowerShell Shell | `&&` operator syntax error in Windows PowerShell; required `;`. | **RESOLVED** |
 | [`ERR-011`](file:///e:/Projects/ZipText(ZTAR)/errors/ERR-011_missing_text_encoding_registry_import.md) | **P3** | Benchmarks | Harness (`four_tier_eval.py`) | `ImportError: cannot import name 'TextEncodingRegistry'` during benchmark run. | **RESOLVED** |
 | [`ERR-012`](file:///e:/Projects/ZipText(ZTAR)/errors/ERR-012_test_assertion_omitted_new_codecs.md) | **P2** | Unit Testing | Test Suite (`test_engine.py`) | Assertion failed when `auto` mode chose superior newly added `brotli` codec. | **RESOLVED** |
+| [`ERR-013`](file:///e:/Projects/ZipText(ZTAR)/errors/ERR-013_github_pre_receive_large_file_rejection.md) | **P2** | Deployment | Git VCS / GitHub Push | `resources/archive.zip` (423 MB) in unpushed commit history blocked push. | **RESOLVED** |
 
 ---
 

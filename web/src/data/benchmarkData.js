@@ -227,5 +227,13 @@ export const INCIDENT_REGISTER = [
     rootCause: 'Assertion list only permitted [lzma, zlib, bz2, lz4], but brotli achieved superior entropy',
     fix: 'Expanded allowable codec assertion to include zstd and brotli.',
     status: 'Resolved & Tested'
+  },
+  {
+    id: 'ERR-013',
+    title: 'GitHub Pre-Receive Hook Large File Rejection (423 MB)',
+    symptom: 'GH001: File resources/archive.zip exceeds limit of 100 MB during git push',
+    rootCause: 'archive.zip was committed in prior commit history and retained in Git packfile',
+    fix: 'Rewrote commit history via git filter-branch, pruned reflog packfiles, and added archive ignore rules.',
+    status: 'Resolved & Pushed'
   }
 ];
