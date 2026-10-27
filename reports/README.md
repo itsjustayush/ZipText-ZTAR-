@@ -13,10 +13,11 @@ reports/
 ├── README.md                      # Reports registry, schema definitions & conventions
 └── v0/                            # Major version: v0.x.x (Research Prototypes & Baselines)
     └── v0.1.0/                    # Patch release: v0.1.0 (Initial baseline prototype)
-        ├── SUMMARY.md             # Theoretical model summary & framework status
-        ├── FINDINGS.md            # Empirical findings & analysis for this release
-        ├── matrix_results.json    # Complete JSON dataset for all test matrix cases
-        └── matrix_results.csv     # Spreadsheet-friendly CSV matrix report
+        ├── SUMMARY.md                   # Theoretical model summary & framework status
+        ├── FINDINGS.md                  # Empirical findings & analysis for this release
+        ├── COMPREHENSIVE_LAB_REPORT.md  # Detailed execution trace, diagrams, benchmark charts
+        ├── matrix_results.json          # Complete JSON dataset for all test matrix cases
+        └── matrix_results.csv           # Spreadsheet-friendly CSV matrix report
 ```
 
 ### Future Versions Structure:
