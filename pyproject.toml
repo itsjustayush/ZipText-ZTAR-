@@ -3,9 +3,9 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "ziptext-lab"
-version = "0.1.0"
-description = "Zip Text Adaptive Representation (ZTAR) - Research Prototype Lab"
+name = "ziptext"
+version = "0.2.0"
+description = "Zip Text Adaptive Representation (ZTAR) - High-efficiency textual & binary reversible container"
 readme = "README.md"
 requires-python = ">=3.9"
 license = "MIT"
@@ -32,11 +32,18 @@ dependencies = [
 [project.optional-dependencies]
 all = [
     "lz4>=4.0.0",
+    "zstandard>=0.22.0",
+    "brotli>=1.1.0",
     "pytest>=7.0.0",
 ]
 
 [project.scripts]
 ziptext = "ziptext.cli:main"
+
+[project.urls]
+Homepage = "https://ziptext.pages.dev"
+Repository = "https://github.com/itsjustayush/ZipText-ZTAR-"
+Documentation = "https://ziptext.pages.dev"
 
 [tool.setuptools.packages.find]
 include = ["ziptext*"]
@@ -44,3 +51,4 @@ include = ["ziptext*"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
+
