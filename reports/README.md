@@ -45,3 +45,5 @@ Every patch release folder must contain:
 | [`v0.1.0`](file:///e:/Projects/ZipText(ZTAR)/reports/v0/v0.1.0/) | 2026-10-27 | **108 / 108** | **35 Passed** | Initial baseline across 9 media types, 6 codecs, 2 chunk sizes |
 | [`v0.1.1`](file:///e:/Projects/ZipText(ZTAR)/reports/v0/v0.1.1/) | 2026-10-27 | **96 / 96** | **35 Passed** | Real-world resources (sports photos, sports.csv, testimg.jpg, countries.json) |
 | [`v0.2.0`](file:///e:/Projects/ZipText(ZTAR)/reports/v0/v0.2.0/) | 2026-10-27 | **624 / 624** | **37 Passed** | Universal 5-category evaluation (26 file types, dual .ztxt/.zbin profiles, standard media validation) |
+| [`v0.3.0`](file:///e:/Projects/ZipText(ZTAR)/reports/v0/v0.3.0/) | 2026-10-28 | **Full Round-Trip** | **51 Passed** | Adaptive Structured Preconditioning (ASPD), Composite Codecs, -38.6% audio compaction, PyPI + CI/CD |
+

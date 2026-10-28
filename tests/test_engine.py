@@ -32,7 +32,7 @@ def test_engine_adaptive_selection(temp_dir):
     enc_res = engine.encode_file(f, ztxt_path, codec="auto", chunk_size=131072)
     # Under adaptive selection, a compressing codec should be selected over raw
     codecs_used = list(enc_res.codec_distribution.keys())
-    assert any(c in ["lzma", "zlib", "bz2", "lz4", "zstd", "brotli"] for c in codecs_used)
+    assert any(c.split("+")[0] in ["lzma", "zlib", "bz2", "lz4", "zstd", "brotli"] for c in codecs_used)
     assert enc_res.encoded_size < enc_res.original_size
 
 

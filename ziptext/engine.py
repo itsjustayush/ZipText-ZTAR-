@@ -85,12 +85,16 @@ class ZipTextEngine:
         else:
             best_size = len(encode_text(raw_bytes, encoding))
 
+        from ziptext.transforms.aspd import ASPDTransform
+
         for c_name in candidate_codecs:
             if c_name == "raw":
                 continue
             try:
                 codec = CodecRegistry.get(c_name)
-                comp_bytes = codec.encode(raw_bytes)
+                # Evaluate entropy-guarded preconditioning transforms for structured data
+                best_t, _, comp_bytes = ASPDTransform.evaluate_candidates(raw_bytes, compress_fn=codec.encode)
+                effective_codec_name = f"{c_name}+{best_t}" if best_t != "none" else c_name
 
                 if is_binary_profile:
                     candidate_size = len(comp_bytes)
@@ -100,7 +104,7 @@ class ZipTextEngine:
                 # Strictly smaller representation
                 if candidate_size < best_size:
                     best_size = candidate_size
-                    best_codec = c_name
+                    best_codec = effective_codec_name
                     best_comp_bytes = comp_bytes
             except Exception:
                 continue

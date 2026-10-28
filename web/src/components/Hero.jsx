@@ -31,7 +31,7 @@ export default function Hero() {
       <div className="hero-content">
         <div className="hero-badge">
           <span className="hero-badge-dot" />
-          <span>ZipText v0.2.0 • ZTAR Core Framework • Lossless ASCII & Binary Containers</span>
+          <span>ZipText v0.3.0 • ZTAR Core Framework • ASPD Preconditioning & Binary Containers</span>
         </div>
 
         {/* React Bits <TechText /> interactive vector wordmark with physics */}

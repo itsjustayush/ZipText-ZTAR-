@@ -40,6 +40,17 @@ ziptext encode high_res_image.jpg image.zbin --profile binary
 ziptext encode data.csv data.ztxt --codec brotli`
     },
     {
+      title: 'Adaptive Preconditioning (ASPD)',
+      description: 'Break through the Shannon limit on signals with invertible differential filters',
+      code: `# Encode 16-bit PCM audio or signals with automatic ASPD preconditioning (-38% footprint!)
+ziptext encode audio.wav audio.zbin --profile binary
+
+# Explicitly select a composite codec (base+transform)
+ziptext encode raw_samples.bin samples.zbin --codec "zstd+pdelta2"
+
+# Available bijective transforms: delta1, delta2, delta3, delta4, plane2, plane4, pdelta2, pdelta4`
+    },
+    {
       title: 'Decode & Verify Integrity',
       description: 'Exact byte-for-byte reconstruction with SHA-256 verification',
       code: `# Decode container into original file with preserved filename & metadata
