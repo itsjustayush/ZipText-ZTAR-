@@ -240,8 +240,16 @@ export const INCIDENT_REGISTER = [
     id: 'ERR-014',
     title: 'Cloudflare Pages Monorepo Build Failure (vite: not found)',
     symptom: 'sh: 1: vite: not found during Cloudflare Pages npm run build execution',
-    rootCause: 'Root package.json lacked npm workspaces declaration, omitting web/node_modules in CI container',
-    fix: 'Declared workspaces: ["web"] and chained prebuild install in package.json.',
+    rootCause: 'Root package.json lacked dependency bootstrapping, omitting web/node_modules in CI container',
+    fix: 'Chained prebuild install in package.json.',
+    status: 'Resolved & Tested'
+  },
+  {
+    id: 'ERR-015',
+    title: 'Cloudflare Wrangler Monorepo Workspace & Assets Deploy Failure',
+    symptom: 'Wrangler application detection failed at root of workspace and missing static assets directory',
+    rootCause: 'Root package.json workspaces triggered Wrangler 4 check; wrangler.toml lacked [assets] block',
+    fix: 'Removed workspaces from root package.json and declared [assets] directory = "web/dist" in wrangler.toml.',
     status: 'Resolved & Tested'
   }
 ];

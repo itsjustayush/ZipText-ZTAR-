@@ -2,9 +2,6 @@
   "name": "ziptext-repo",
   "private": true,
   "description": "ZipText (ZTAR) Monorepo - Python PyPI Package & Cloudflare Web Docs",
-  "workspaces": [
-    "web"
-  ],
   "scripts": {
     "prebuild": "npm --prefix web install",
     "build": "npm --prefix web install && npm --prefix web run build",
