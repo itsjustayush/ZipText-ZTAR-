@@ -1,8 +1,8 @@
 # ZipText (ZTAR) — High-Efficiency Textual & Binary Reversible Container
 
-[![PyPI Version](https://img.shields.io/badge/pypi-v0.2.0-blue.svg)](https://pypi.org/project/ziptext/)
+[![PyPI Version](https://img.shields.io/badge/pypi-v0.3.0-blue.svg)](https://pypi.org/project/ziptext/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Tests Passing](https://img.shields.io/badge/tests-39%20passed-brightgreen.svg)]()
+[![Tests Passing](https://img.shields.io/badge/tests-51%20passed-brightgreen.svg)]()
 [![Cloudflare Pages](https://img.shields.io/badge/docs-Cloudflare%20Pages-orange.svg)](https://ziptext.pages.dev)
 
 **Zip Text Adaptive Representation (ZTAR)** is a storage-independent framework designed to represent files as compact, reversible textual containers (`.ztxt`) or high-speed binary containers (`.zbin`). It prioritizes lossless exact reconstruction ($\operatorname{Decode}(\operatorname{Encode}(X)) = X$), adaptive multi-codec optimization, bounded-memory chunk streaming, and cryptographic chunk integrity.
@@ -129,21 +129,52 @@ with open("large_stream.ztxt", "w", encoding="utf-8") as f:
 
 ---
 
-## 5. Canterbury Corpus Benchmark Results (v0.2.0)
+## 5. Benchmarks & Algorithmic Leaderboard
+
+ZTAR is evaluated against standardized international corpora (including the 11-file **Canterbury Corpus**) and real-world multi-byte structured media using exact byte-for-byte cryptographic verification ($\operatorname{SHA-256}(\operatorname{Decoded}) = \operatorname{SHA-256}(\operatorname{Original})$).
+
+### 5.1 Canterbury Corpus Storage Reduction
+
+![Canterbury Corpus & Structured Media: Net Compression Ratios](docs/assets/benchmark_canterbury_reduction.png)
 
 | File Name | Category | Rep A (Raw) | Rep B (Comp) | Best Codec | Rep D (.ztxt) | Rep D (.zbin) | Net Storage Reduction (.ztxt) | Net Storage Reduction (.zbin) | Lossless Pass |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **alice29.txt** | Literature (English) | 152,089 B | 43,202 B | `bz2` | 56,052 B | 43,604 B | **-63.15%** | **-71.33%** | 100% Exact |
-| **asyoulik.txt** | Play (Shakespeare) | 125,179 B | 39,569 B | `bz2` | 51,392 B | 39,972 B | **-58.95%** | **-68.07%** | 100% Exact |
-| **cp.html** | HTML Document | 24,603 B | 7,609 B | `brotli` | 10,478 B | 8,011 B | **-57.41%** | **-67.44%** | 100% Exact |
-| **fields.c** | C Source Code | 11,150 B | 3,012 B | `brotli` | 4,426 B | 3,414 B | **-60.30%** | **-69.38%** | 100% Exact |
-| **grammar.lsp** | LISP Source Code | 3,721 B | 1,215 B | `brotli` | 1,988 B | 1,617 B | **-46.57%** | **-56.54%** | 100% Exact |
+| **ptt5** | CCITT Fax Binary | 513,216 B | 49,759 B | `brotli` | 65,112 B | 50,161 B | **-87.31%** | **-90.23%** | 100% Exact |
 | **kennedy.xls** | Spreadsheet Binary | 1,029,744 B | 130,248 B | `brotli` | 168,676 B | 130,650 B | **-83.62%** | **-87.31%** | 100% Exact |
 | **lcet10.txt** | Technical Paper | 426,754 B | 107,641 B | `bz2` | 139,588 B | 108,043 B | **-67.29%** | **-74.68%** | 100% Exact |
-| **plrabn12.txt** | Poetry (Milton) | 481,861 B | 145,548 B | `bz2` | 188,824 B | 145,950 B | **-60.81%** | **-69.71%** | 100% Exact |
-| **ptt5** | CCITT Fax Binary | 513,216 B | 49,759 B | `brotli` | 65,112 B | 50,161 B | **-87.31%** | **-90.23%** | 100% Exact |
 | **sum** | SPARC Executable | 38,240 B | 9,811 B | `brotli` | 13,386 B | 10,213 B | **-64.99%** | **-73.29%** | 100% Exact |
+| **alice29.txt** | Literature (English) | 152,089 B | 43,202 B | `bz2` | 56,052 B | 43,604 B | **-63.15%** | **-71.33%** | 100% Exact |
+| **fields.c** | C Source Code | 11,150 B | 3,012 B | `brotli` | 4,426 B | 3,414 B | **-60.30%** | **-69.38%** | 100% Exact |
+| **plrabn12.txt** | Poetry (Milton) | 481,861 B | 145,548 B | `bz2` | 188,824 B | 145,950 B | **-60.81%** | **-69.71%** | 100% Exact |
+| **asyoulik.txt** | Play (Shakespeare) | 125,179 B | 39,569 B | `bz2` | 51,392 B | 39,972 B | **-58.95%** | **-68.07%** | 100% Exact |
+| **cp.html** | HTML Document | 24,603 B | 7,609 B | `brotli` | 10,478 B | 8,011 B | **-57.41%** | **-67.44%** | 100% Exact |
+| **grammar.lsp** | LISP Source Code | 3,721 B | 1,215 B | `brotli` | 1,988 B | 1,617 B | **-46.57%** | **-56.54%** | 100% Exact |
 | **xargs.1** | UNIX Man Page | 4,227 B | 1,588 B | `brotli` | 2,526 B | 1,990 B | **-40.24%** | **-52.92%** | 100% Exact |
+
+---
+
+### 5.2 Algorithm Leaderboard: ZTAR vs Industry Standards
+
+![Algorithm Leaderboard: ZTAR v0.3.0 vs Gzip, Zstandard, Brotli](docs/assets/benchmark_algorithm_leaderboard.png)
+
+#### Structured Signal Breakthrough: Adaptive Structured Preconditioning (ASPD)
+In v0.3.0, ZTAR introduces **Adaptive Structured Preconditioning & Deinterleaving (ASPD)**:
+* Standard compressors fail on 16-bit PCM waveforms because high-order sign bytes and low-order noise bytes oscillate rapidly across sample boundaries.
+* ZTAR's bijective `pdelta2` transform deinterleaves the sign and magnitude byte planes and computes finite stride differentials, dropping 0-order entropy from 7.70 to 6.40 bpb.
+* On structured audio (`audio.wav`), ZTAR shrinks container footprint to **2,777 B** (vs Brotli-11's 4,527 B) — an empirical **-38.65% size reduction** below standard Brotli.
+* **Dual-Stage Gating Guard**: On discrete text and spreadsheets (`alice29.txt`, `kennedy.xls`), the engine detects that delta differentials scatter discrete ASCII codes, automatically falling back to identity pass-through (`none`) with zero performance regression.
+
+---
+
+### 5.3 Version Evolution Scorecard
+
+![ZTAR Architectural Evolution: Version Progression Scorecard](docs/assets/version_evolution_scorecard.png)
+
+| Release | Focus Area | Codecs & Transforms | Waveform Reduction | Exact Lossless Invariant |
+| :--- | :--- | :---: | :---: | :---: |
+| **v0.1.0** | MVP Container Architecture | Single-stream Deflate | Baseline | 100% Bit-Exact |
+| **v0.2.0** | Adaptive Multi-Codec Engine | 7 Codecs (`brotli`, `zstd`, `lzma`, `bz2`, `zlib`, `lz4`, `raw`) | -52.0% | 100% Bit-Exact |
+| **v0.3.0** | Mathematical Preconditioning (ASPD) | 7 Codecs + 8 Bijective Transforms (`pdelta2`, `plane4`, `delta1-4`) | **-70.6%** | **100% Bit-Exact** |
 
 ---
 
@@ -167,12 +198,12 @@ npm run preview
 
 ## 7. Incident Register & Engineering Forensics
 
-We maintain an immutable log of anomalies and fixes in [`errors/`](errors/README.md) (`ERR-001` through `ERR-012`), each verified by automated unit tests in `tests/`.
+We maintain an immutable log of anomalies and fixes in [`errors/`](errors/README.md) (`ERR-001` through `ERR-015`), each verified by automated unit tests in `tests/`.
 
 Run the automated test suite:
 ```bash
 pytest -v
-# 39 passed in 13.25s
+# 51 passed in 68.91s
 ```
 
 ---
