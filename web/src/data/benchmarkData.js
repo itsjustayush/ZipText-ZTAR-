@@ -235,5 +235,13 @@ export const INCIDENT_REGISTER = [
     rootCause: 'archive.zip was committed in prior commit history and retained in Git packfile',
     fix: 'Rewrote commit history via git filter-branch, pruned reflog packfiles, and added archive ignore rules.',
     status: 'Resolved & Pushed'
+  },
+  {
+    id: 'ERR-014',
+    title: 'Cloudflare Pages Monorepo Build Failure (vite: not found)',
+    symptom: 'sh: 1: vite: not found during Cloudflare Pages npm run build execution',
+    rootCause: 'Root package.json lacked npm workspaces declaration, omitting web/node_modules in CI container',
+    fix: 'Declared workspaces: ["web"] and chained prebuild install in package.json.',
+    status: 'Resolved & Tested'
   }
 ];
