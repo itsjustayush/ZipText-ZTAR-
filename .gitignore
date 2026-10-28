@@ -30,4 +30,5 @@ web/dist/
 fixtures/canterbury/
 resources/*.zip
 resources/kaggle/
+reports/internal/
 
