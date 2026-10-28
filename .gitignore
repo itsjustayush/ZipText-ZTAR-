@@ -29,4 +29,5 @@ web/dist/
 *.tar.gz
 fixtures/canterbury/
 resources/*.zip
+resources/kaggle/
 
