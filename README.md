@@ -11,7 +11,7 @@
 
 ## 1. Key Highlights & Priorities
 
-- **Exact Lossless Reconstruction**: Strict invariant guaranteed by whole-file and per-chunk SHA-256 and CRC32 digests.
+- **Exact Lossless Reconstruction**: Cryptographic invariant guaranteed by whole-file and per-chunk SHA-256 validation with atomic write semantics.
 - **Dual Container Profiles**:
   - **Textual Profile (`.ztxt`)**: Base85 armored ASCII container with plain-text headers. Ideal for systems restricted to text-only transmission (APIs, JSON envelopes, message queues).
   - **Binary Profile (`.zbin`)**: High-speed binary container with zero text expansion penalty. Ideal for dense media (JPEG, PNG, MP4, WebP).
@@ -53,7 +53,7 @@ Verify global availability:
 
 ```bash
 ziptext --version
-# Output: ziptext 0.2.0
+# Output: ziptext 0.3.0
 ```
 
 ---
@@ -83,7 +83,7 @@ ziptext decode document.ztxt recovered_document.json
 
 ### Verification & Inspection
 ```bash
-# Verify CRC32 and SHA-256 integrity without writing to disk
+# Verify chunk-level and whole-file SHA-256 integrity without writing to disk
 ziptext verify document.ztxt
 
 # Inspect container manifest metadata
@@ -157,9 +157,9 @@ ZTAR is evaluated against standardized international corpora (including the 11-f
 
 ![Algorithm Leaderboard: ZTAR v0.3.0 vs Gzip, Zstandard, Brotli](docs/assets/benchmark_algorithm_leaderboard.png)
 
-#### Structured Signal Breakthrough: Adaptive Structured Preconditioning (ASPD)
+#### Signal Preconditioning: Adaptive Structured Preconditioning & Deinterleaving (ASPD)
 In v0.3.0, ZTAR introduces **Adaptive Structured Preconditioning & Deinterleaving (ASPD)**:
-* Standard compressors fail on 16-bit PCM waveforms because high-order sign bytes and low-order noise bytes oscillate rapidly across sample boundaries.
+* Standard general-purpose compressors struggle on 16-bit PCM waveforms because high-order sign bytes and low-order noise bytes oscillate rapidly across sample boundaries.
 * ZTAR's bijective `pdelta2` transform deinterleaves the sign and magnitude byte planes and computes finite stride differentials, dropping 0-order entropy from 7.70 to 6.40 bpb.
 * On structured audio (`audio.wav`), ZTAR shrinks container footprint to **2,777 B** (vs Brotli-11's 4,527 B) — an empirical **-38.65% size reduction** below standard Brotli.
 * **Dual-Stage Gating Guard**: On discrete text and spreadsheets (`alice29.txt`, `kennedy.xls`), the engine detects that delta differentials scatter discrete ASCII codes, automatically falling back to identity pass-through (`none`) with zero performance regression.
@@ -174,7 +174,7 @@ In v0.3.0, ZTAR introduces **Adaptive Structured Preconditioning & Deinterleavin
 | :--- | :--- | :---: | :---: | :---: |
 | **v0.1.0** | MVP Container Architecture | Single-stream Deflate | Baseline | 100% Bit-Exact |
 | **v0.2.0** | Adaptive Multi-Codec Engine | 7 Codecs (`brotli`, `zstd`, `lzma`, `bz2`, `zlib`, `lz4`, `raw`) | -52.0% | 100% Bit-Exact |
-| **v0.3.0** | Mathematical Preconditioning (ASPD) | 7 Codecs + 8 Bijective Transforms (`pdelta2`, `plane4`, `delta1-4`) | **-70.6%** | **100% Bit-Exact** |
+| **v0.3.0** | Signal Preconditioning Filters (ASPD) | 7 Codecs + 8 Bijective Transforms (`pdelta2`, `plane4`, `delta1-4`) | **-70.6%** | **100% Bit-Exact** |
 
 ---
 

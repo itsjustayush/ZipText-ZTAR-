@@ -3,8 +3,7 @@
   "private": true,
   "description": "ZipText (ZTAR) Monorepo - Python PyPI Package & Cloudflare Web Docs",
   "scripts": {
-    "prebuild": "npm --prefix web install",
-    "build": "npm --prefix web install && npm --prefix web run build",
+    "build": "npm --prefix web run build",
     "dev": "npm --prefix web run dev",
     "preview": "npm --prefix web run preview"
   }

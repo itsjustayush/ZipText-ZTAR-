@@ -13,7 +13,7 @@ const PRESETS = [
   {
     name: 'JSON API Schema',
     type: 'Structured Config',
-    content: `{\n  "status": "success",\n  "framework": "ZipText-ZTAR",\n  "version": "0.2.0",\n  "codecs": ["brotli", "zstd", "lzma", "zlib", "bz2", "lz4"],\n  "profiles": {\n    "text": { "extension": ".ztxt", "encoding": "base85", "magic": "ZTXT1" },\n    "binary": { "extension": ".zbin", "encoding": "raw", "magic": "ZBIN1" }\n  },\n  "benchmarks": {\n    "canterbury_corpus_lossless_pass_rate": 1.0,\n    "sha256_verified": true\n  }\n}`,
+    content: `{\n  "status": "success",\n  "framework": "ZipText-ZTAR",\n  "version": "0.3.0",\n  "codecs": ["brotli", "zstd", "lzma", "zlib", "bz2", "lz4"],\n  "profiles": {\n    "text": { "extension": ".ztxt", "encoding": "base85", "magic": "ZTXT1" },\n    "binary": { "extension": ".zbin", "encoding": "raw", "magic": "ZBIN1" }\n  },\n  "benchmarks": {\n    "canterbury_corpus_lossless_pass_rate": 1.0,\n    "sha256_verified": true\n  }\n}`,
     estRatio: 0.32,
     bestCodec: 'zstd'
   },
@@ -99,7 +99,7 @@ export default function InteractiveSimulator() {
 
   const handleCopyContainer = () => {
     playSuccessChime();
-    const mockContainer = `-----BEGIN ZIPTEXT CONTAINER-----\nFORMAT: ZTXT1\nVERSION: 0.2.0\nCODEC: ${metrics.chosenCodec}\nCHECKSUM: sha256:${Array.from({length: 32}, () => Math.floor(Math.random()*16).toString(16)).join('')}\nORIGINAL_SIZE: ${metrics.rawBytes}\n-----BEGIN CHUNK 1/1-----\n${btoa(inputText.slice(0, 160))}\n-----END CHUNK-----\n-----END ZIPTEXT CONTAINER-----`;
+    const mockContainer = `-----BEGIN ZIPTEXT CONTAINER-----\nFORMAT: ZTXT1\nVERSION: 0.3.0\nCODEC: ${metrics.chosenCodec}\nCHECKSUM: sha256:${Array.from({length: 32}, () => Math.floor(Math.random()*16).toString(16)).join('')}\nORIGINAL_SIZE: ${metrics.rawBytes}\n-----BEGIN CHUNK 1/1-----\n${btoa(inputText.slice(0, 160))}\n-----END CHUNK-----\n-----END ZIPTEXT CONTAINER-----`;
     navigator.clipboard.writeText(mockContainer);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -108,10 +108,10 @@ export default function InteractiveSimulator() {
   return (
     <section id="simulator" className="section">
       <div className="section-header">
-        <span className="section-pill">Interactive Lab</span>
-        <h2 className="section-title">4-Tier Representation Simulator</h2>
+        <span className="section-pill">Concept Simulator (Illustrative Demo)</span>
+        <h2 className="section-title">4-Tier Representation Estimator</h2>
         <p className="section-desc">
-          Test file contents live. Compare Raw (Rep A), Compressed Binary (Rep B), Base85 Armor (Rep C), and ZTAR Container (Rep D).
+          Interactive architectural estimator. Test file patterns live and compare estimated Raw (Rep A), Compressed Binary (Rep B), Base85 Armor (Rep C), and ZTAR Container (Rep D) sizes.
         </p>
       </div>
 
@@ -216,7 +216,7 @@ export default function InteractiveSimulator() {
             >
 {`-----BEGIN ZIPTEXT CONTAINER-----
 MAGIC: ${profile === 'text' ? 'ZTXT1' : 'ZBIN1'}
-VERSION: 0.2.0
+VERSION: 0.3.0
 CODEC: ${metrics.chosenCodec}
 ORIGINAL_NAME: ${PRESETS[selectedPreset].name.toLowerCase().replace(/\\s+/g, '_')}.dat
 ORIGINAL_SIZE: ${metrics.rawBytes}
@@ -225,7 +225,7 @@ CHUNK_COUNT: 1
 WHOLE_FILE_HASH: sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
 -----BEGIN CHUNK 1/1-----
 COMPRESSED_SIZE: ${metrics.compBinaryBytes}
-CHUNK_CRC32: 0x8a92f01d
+CHUNK_SHA256: 8a92f01db8453cc14a28be1762c9
 ${profile === 'text' 
   ? `s4IAAAAAAAAA+2Xw02gAQBqD0m1V... [Base85 armored ascii payload: ${metrics.base85Bytes} bytes]` 
   : `<RAW_BINARY_STREAM: ${metrics.compBinaryBytes} bytes>`}

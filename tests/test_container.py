@@ -1,6 +1,7 @@
 """Tests for .ztxt container format, serialization, and stream parsing."""
 
 import io
+import json
 import pytest
 from ziptext.container import (
     ChunkHeader,
@@ -28,7 +29,7 @@ def test_manifest_serialization():
     assert "0.1.0" in json_str
     assert "test.dat" in json_str
 
-    restored = ContainerManifest.from_dict(eval(json_str))
+    restored = ContainerManifest.from_dict(json.loads(json_str))
     assert restored.filename == manifest.filename
     assert restored.file_size == manifest.file_size
     assert restored.total_chunks == manifest.total_chunks

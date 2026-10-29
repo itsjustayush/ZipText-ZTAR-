@@ -1,6 +1,7 @@
 """Zip Text Engine for adaptive chunked encoding, decoding, and verification."""
 
 import hashlib
+import logging
 import os
 import shutil
 import tempfile
@@ -22,6 +23,8 @@ from ziptext.text_encodings import encode_text
 from ziptext.utils import MemoryTracker, compute_file_sha256, compute_sha256
 from ziptext.validator import MediaValidator, ValidationReport
 
+logger = logging.getLogger("ziptext.engine")
+
 
 @dataclass
 class EncodeResult:
@@ -41,6 +44,16 @@ class EncodeResult:
     duration_seconds: float
     peak_memory_rss: int
     profile: str = "text"
+
+    @property
+    def container_size(self) -> int:
+        """Alias for encoded_size for SDK ergonomics."""
+        return self.encoded_size
+
+    @property
+    def codec_used(self) -> str:
+        """Alias for policy for SDK ergonomics."""
+        return self.policy
 
 
 @dataclass
@@ -63,8 +76,16 @@ class DecodeResult:
 class ZipTextEngine:
     """Core ZTAR processing engine."""
 
-    def __init__(self):
-        pass
+    def __init__(
+        self,
+        chunk_size: int = 1048576,
+        default_codec: str = "auto",
+        encoding: str = "base85",
+        chunk_size_bytes: Optional[int] = None,
+    ):
+        self.chunk_size = chunk_size_bytes if chunk_size_bytes is not None else chunk_size
+        self.default_codec = default_codec
+        self.encoding = encoding
 
     def _select_adaptive_codec(
         self,
@@ -106,7 +127,8 @@ class ZipTextEngine:
                     best_size = candidate_size
                     best_codec = effective_codec_name
                     best_comp_bytes = comp_bytes
-            except Exception:
+            except Exception as e:
+                logger.debug("Candidate %s failed during adaptive evaluation: %s", c_name, e)
                 continue
 
         return best_codec, best_comp_bytes
@@ -115,9 +137,9 @@ class ZipTextEngine:
         self,
         input_path: Union[str, Path],
         output_path: Union[str, Path],
-        codec: str = "auto",
-        chunk_size: int = 1048576,
-        encoding: str = "base85",
+        codec: Optional[str] = None,
+        chunk_size: Optional[int] = None,
+        encoding: Optional[str] = None,
         profile: str = "auto",
     ) -> EncodeResult:
         """Encode a file into a Zip Text container (.ztxt text or .zbin binary)."""
@@ -129,6 +151,10 @@ class ZipTextEngine:
 
         out_p.parent.mkdir(parents=True, exist_ok=True)
 
+        eff_codec = (codec if codec is not None else self.default_codec).lower()
+        eff_chunk_size = chunk_size if chunk_size is not None else self.chunk_size
+        eff_encoding = encoding if encoding is not None else self.encoding
+
         # Resolve container profile
         if profile == "auto":
             effective_profile = "binary" if out_p.suffix.lower() == ".zbin" else "text"
@@ -139,17 +165,17 @@ class ZipTextEngine:
         file_sha256 = compute_file_sha256(in_p)
 
         # Handle empty file edge-case
-        total_chunks = max(1, (original_size + chunk_size - 1) // chunk_size) if original_size > 0 else 0
+        total_chunks = max(1, (original_size + eff_chunk_size - 1) // eff_chunk_size) if original_size > 0 else 0
 
         manifest = ContainerManifest(
-            version="0.1.0",
+            version="0.3.0",
             filename=in_p.name,
             file_size=original_size,
             file_sha256=file_sha256,
-            chunk_size=chunk_size,
+            chunk_size=eff_chunk_size,
             total_chunks=total_chunks,
-            policy=codec,
-            default_encoding=encoding if effective_profile == "text" else "none",
+            policy=eff_codec,
+            default_encoding=eff_encoding if effective_profile == "text" else "none",
             profile=effective_profile,
             created_at=datetime.now(timezone.utc).isoformat(),
         )
@@ -168,20 +194,20 @@ class ZipTextEngine:
                     with open(in_p, "rb") as in_f:
                         chunk_idx = 0
                         while True:
-                            raw_chunk = in_f.read(chunk_size)
+                            raw_chunk = in_f.read(eff_chunk_size)
                             if not raw_chunk:
                                 break
 
                             chunk_sha256 = compute_sha256(raw_chunk)
 
-                            if codec == "auto":
+                            if eff_codec == "auto":
                                 chosen_codec, comp_bytes = self._select_adaptive_codec(
                                     raw_chunk,
-                                    encoding=encoding,
+                                    encoding=eff_encoding,
                                     is_binary_profile=is_bin,
                                 )
                             else:
-                                chosen_codec = codec.lower()
+                                chosen_codec = eff_codec
                                 c_inst = CodecRegistry.get(chosen_codec)
                                 comp_bytes = c_inst.encode(raw_chunk)
 
@@ -190,7 +216,7 @@ class ZipTextEngine:
                                 raw_size=len(raw_chunk),
                                 compressed_bytes=comp_bytes,
                                 codec_name=chosen_codec,
-                                text_encoding=encoding,
+                                text_encoding=eff_encoding,
                                 raw_sha256=chunk_sha256,
                             )
 
@@ -211,10 +237,10 @@ class ZipTextEngine:
             encoded_size=encoded_size,
             ratio=ratio,
             size_change_pct=size_change_pct,
-            chunk_size=chunk_size,
+            chunk_size=eff_chunk_size,
             total_chunks=total_chunks,
-            policy=codec,
-            text_encoding=encoding if effective_profile == "text" else "none",
+            policy=eff_codec,
+            text_encoding=eff_encoding if effective_profile == "text" else "none",
             file_sha256=file_sha256,
             codec_distribution=codec_distribution,
             duration_seconds=mem.elapsed_time,
@@ -238,7 +264,11 @@ class ZipTextEngine:
             manifest = reader.manifest
 
             if output_path is None:
-                out_p = in_p.parent / f"recovered_{manifest.filename}"
+                # Sanitize filename to prevent directory traversal
+                safe_filename = Path(manifest.filename).name
+                if not safe_filename or safe_filename in {".", ".."}:
+                    safe_filename = "reconstructed_payload"
+                out_p = in_p.parent / f"recovered_{safe_filename}"
             else:
                 out_p = Path(output_path).resolve()
 

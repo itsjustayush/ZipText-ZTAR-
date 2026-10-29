@@ -59,7 +59,7 @@ def test_corrupt_whole_file_hash(temp_dir, sample_text_file):
 
     content = ztxt.read_text(encoding="utf-8")
     # Mutate file_sha256 in manifest
-    tampered = re.sub(r'"file_sha256": "[0-9a-f]{64}"', '"file_sha256": "' + "f" * 64 + '"', content)
+    tampered = re.sub(r'"file_sha256":\s*"[0-9a-f]{64}"', '"file_sha256": "' + "f" * 64 + '"', content)
     ztxt.write_text(tampered, encoding="utf-8")
 
     with pytest.raises(IntegrityError, match="Whole-file SHA-256 mismatch"):
